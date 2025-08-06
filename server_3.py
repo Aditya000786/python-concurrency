@@ -7,7 +7,7 @@ def fib_server(address):
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     sock.bind(address)
     sock.listen(15)
-    with Pool() as pool:
+    with Pool(4) as pool:
         while True:
             client, addr = sock.accept()
             print("client is connected")
