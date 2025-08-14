@@ -6,8 +6,8 @@ from fib import fib
 from threading import Thread
 from collections import deque
 from select import select
-from concurrent.futures import ThreadPoolExecutor as Pool
-# from concurrent.futures import ProcessPoolExecutor as Pool
+# from concurrent.futures import ThreadPoolExecutor as Pool
+from concurrent.futures import ProcessPoolExecutor as Pool
 
 def future_done(future):
     tasks.append(future_wait.pop(future))
