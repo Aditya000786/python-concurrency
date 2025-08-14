@@ -1,13 +1,23 @@
+# The yield is not “before” the blocking call — it’s “instead of” blocking.
+
+# difference between ThreadPoolExecutor vs ProcessPoolExecutor
 from socket import *
 from fib import fib
 from threading import Thread
 from collections import deque
 from select import select
-    
-tasks = deque()
+from concurrent.futures import ThreadPoolExecutor as Pool
+# from concurrent.futures import ProcessPoolExecutor as Pool
 
-recv_wait = {}  # Mapping sockets -> tasks (generators)
-send_wait = {}
+def future_done(future):
+    tasks.append(future_wait.pop(future))
+    future_notify.send(b'x')
+
+def future_monitor():
+    while True:
+        yield 'recv', future_event
+        future_event.recv(100)
+
 def run():
     while any([tasks, recv_wait, send_wait]):
         while not tasks:
@@ -27,6 +37,9 @@ def run():
                 recv_wait[what] = task
             elif why == 'send':
                 send_wait[what] = task
+            elif why == 'future':
+                future_wait[what] = task
+                what.add_done_callback(future_done)
             else:
                 raise RuntimeError("ARG!")
         except StopIteration:
@@ -53,11 +66,25 @@ def fib_handler(client):
         if not req:
             break
         n = int(req)
-        result = fib(n)
+        future = pool.submit(fib, n)
+        yield 'future', future
+        result = future.result()        #blocking
         resp = str(result).encode('ascii') + b'\n'
         yield 'send', client
         client.send(resp)
     print("Closed")
-   
-tasks.append(fib_server(('', 25000)))
-run()
+
+if __name__ == "__main__":
+    pool = Pool(4)
+    
+    tasks = deque()
+
+    recv_wait = {}  # Mapping sockets -> tasks (generators)
+    send_wait = {}
+    future_wait = {}
+
+    future_notify, future_event = socketpair()
+
+    tasks.append(future_monitor())
+    tasks.append(fib_server(('', 25000)))
+    run()
