@@ -1,35 +1,39 @@
 from collections import deque
 from concurrent.futures import Future
-from threading import Thread
+from threading import Thread, Lock
+    
 class Queuey:
     def __init__(self, maxsize):
         self.maxsize = maxsize
         self.items = deque()
         self.getters = deque()
         self.putters = deque()
+        self.mutex = Lock()
         
     def get_noblock(self):
-        if self.items:
-            # Wake a putter
-            if self.putters:
-                self.putters.popleft().set_result(True)
-            return self.items.popleft(), None
-        else:
-            fut = Future()
-            self.getters.append(fut)
-            return None, fut
+        with self.mutex:
+            if self.items:
+                # Wake a putter
+                if self.putters:
+                    self.putters.popleft().set_result(True)
+                return self.items.popleft(), None
+            else:
+                fut = Future()
+                self.getters.append(fut)
+                return None, fut
             
     def put_noblock(self, item):
-        if len(self.items) < self.maxsize:
-            self.items.append(item)
-            if self.getters:
-                self.getters.popleft().set_result(
-                    self.items.popleft()
-                )
-        else:
-            fut = Future()
-            self.putters.append(fut)
-            return fut
+        with self.mutex:
+            if len(self.items) < self.maxsize:
+                self.items.append(item)
+                if self.getters:
+                    self.getters.popleft().set_result(
+                        self.items.popleft()
+                    )
+            else:
+                fut = Future()
+                self.putters.append(fut)
+                return fut
         
     def get_sync(self):
         item, fut = self.get_noblock()
