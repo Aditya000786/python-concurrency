@@ -1,6 +1,8 @@
 from collections import deque
 from concurrent.futures import Future
 from threading import Thread, Lock
+from asyncio import wait_for, wrap_future, get_event_loop
+from time import sleep
     
 class Queuey:
     def __init__(self, maxsize):
@@ -35,6 +37,12 @@ class Queuey:
                 self.putters.append(fut)
                 return fut
         
+    async def get_async(self):
+        item, fut = self.get_noblock()
+        if fut:
+            item = await wait_for(wrap_future(fut), None)
+        return item
+    
     def get_sync(self):
         item, fut = self.get_noblock()
         if fut:
@@ -48,6 +56,13 @@ class Queuey:
                 return
             fut.result()
             
+    async def put_async(self, item):
+        while True:
+            fut = self.put_noblock(item)
+            if fut is None:
+                return
+            await wait_for(wrap_future(fut), None)
+            
 
 def producer(q, n):
     for i in range(n):
@@ -60,3 +75,25 @@ def consumer(q, n):
         if item is None:
             break
         print("Got: ", item)
+        
+async def aconsumer(q):
+    while True:
+        item = await q.get_async()
+        if item is None:
+            break
+        print("Async Got: ", item)
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
