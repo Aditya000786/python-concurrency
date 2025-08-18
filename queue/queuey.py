@@ -3,7 +3,24 @@ from concurrent.futures import Future
 from threading import Thread, Lock
 from asyncio import wait_for, wrap_future, get_event_loop
 from time import sleep
+import sys
+
+def from_coroutine():
+    return sys._getframe(2).f_code.co_flags & 0x380
+        
+def which_pill():
+    if from_coroutine():
+        print("Red")
+    else:
+        print("Blue")
+        
+def spam():
+    which_pill()
     
+async def aspam():
+    which_pill()
+    
+
 class Queuey:
     def __init__(self, maxsize):
         self.maxsize = maxsize
@@ -50,6 +67,18 @@ class Queuey:
             item = await wait_for(wrap_future(fut), None)
         return item
     
+    def get(self):
+        if from_coroutine():
+            return self.get_async()
+        else:
+            return self.get_sync()
+    
+    def put(self, item):
+        if from_coroutine():
+            return self.put_async(item)
+        else:
+            return self.put_sync(item)
+    
     def put_sync(self, item):
         while True:
             fut = self.put_noblock(item)
@@ -67,19 +96,24 @@ class Queuey:
 
 def producer(q, n):
     for i in range(n):
-        q.put_sync(i)
-    q.put_sync(None)
+        q.put(i)
+    q.put(None)
+
+async def aproducer(q, n):
+    for i in range(n):
+        await q.put(i)
+    await q.put(None)
     
-def consumer(q, n):
+def consumer(q):
     while True:
-        item = q.get_sync()
+        item = q.get()
         if item is None:
             break
         print("Got: ", item)
         
 async def aconsumer(q):
     while True:
-        item = await q.get_async()
+        item = await q.get()
         if item is None:
             break
         print("Async Got: ", item)
