@@ -36,12 +36,6 @@ class Queuey:
                 fut = Future()
                 self.putters.append(fut)
                 return fut
-        
-    async def get_async(self):
-        item, fut = self.get_noblock()
-        if fut:
-            item = await wait_for(wrap_future(fut), None)
-        return item
     
     def get_sync(self):
         item, fut = self.get_noblock()
@@ -49,6 +43,13 @@ class Queuey:
             item = fut.result()
         return item
         
+    
+    async def get_async(self):
+        item, fut = self.get_noblock()
+        if fut:
+            item = await wait_for(wrap_future(fut), None)
+        return item
+    
     def put_sync(self, item):
         while True:
             fut = self.put_noblock(item)
